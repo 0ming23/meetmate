@@ -1,0 +1,75 @@
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import javax.swing.JLabel;
+
+public class RegisterSystem {
+    private String userId;
+    private String userPassword;
+    private String userName;
+    private String userNickname;
+    private JLabel statusLabel;
+
+    public RegisterSystem(String userId, String userPassword, String userName, String userNickname, JLabel statusLabel) {
+        this.userId = userId;
+        this.userPassword = userPassword;
+        this.userName = userName;
+        this.userNickname = userNickname;
+        this.statusLabel = statusLabel;
+    }
+
+    public void registerUser() {
+        Connection connection = DatabaseConnection.getConnection();
+        if (connection != null) {
+            try {
+                // 닉네임 중복 검사
+                String checkNicknameQuery = "SELECT * FROM meetmate_user WHERE user_nickname = ?";
+                PreparedStatement checkNicknameStatement = connection.prepareStatement(checkNicknameQuery);
+                checkNicknameStatement.setString(1, userNickname);
+                ResultSet nicknameResultSet = checkNicknameStatement.executeQuery();
+                boolean isNicknameDuplicate = nicknameResultSet.next();
+
+                // 아이디 중복 검사
+                String checkIDQuery = "SELECT * FROM meetmate_user WHERE user_id = ?";
+                PreparedStatement checkIDStatement = connection.prepareStatement(checkIDQuery);
+                checkIDStatement.setString(1, userId);
+                ResultSet idResultSet = checkIDStatement.executeQuery();
+                boolean isIDDuplicate = idResultSet.next();
+
+                if (isNicknameDuplicate || isIDDuplicate) {
+                    if (isNicknameDuplicate && isIDDuplicate) {
+                        statusLabel.setText("이미 사용 중인 닉네임과 아이디입니다.");
+                    } else if (isNicknameDuplicate) {
+                        statusLabel.setText("이미 사용 중인 닉네임입니다.");
+                    } else if (isIDDuplicate) {
+                        statusLabel.setText("이미 사용 중인 아이디입니다.");
+                    }
+                } else {
+                    // 닉네임과 아이디 모두 중복되지 않으면 회원가입 완료
+                    String insertQuery = "INSERT INTO meetmate_user (user_id, user_password, user_nickname, user_name) VALUES (?, ?, ?, ?)";
+                    PreparedStatement insertStatement = connection.prepareStatement(insertQuery);
+                    insertStatement.setString(1, userId);
+                    insertStatement.setString(2, userPassword);
+                    insertStatement.setString(3, userNickname);
+                    insertStatement.setString(4, userName);
+                    insertStatement.executeUpdate();
+                    statusLabel.setText("회원가입이 완료되었습니다.");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                statusLabel.setText("DB 오류: " + e.getMessage());
+            } finally {
+                try {
+                    if (connection != null && !connection.isClosed()) {
+                        connection.close();
+                    }
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        } else {
+            statusLabel.setText("데이터베이스 연결 실패");
+        }
+    }
+}
