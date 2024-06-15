@@ -1,0 +1,222 @@
+import javax.swing.*;
+import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class ProfileScreen extends JFrame {
+    private DefaultListModel<String> todoListModel;
+    private DefaultListModel<String> lightningTimeListModel;
+    private String userId;
+
+    public ProfileScreen(String userId) {
+        this.userId = userId;
+
+        setTitle("내 프로필");
+        setSize(300, 400);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        todoListModel = new DefaultListModel<>();
+        loadListFromDatabase(todoListModel, "todos");
+        JList<String> todoList = new JList<>(todoListModel);
+        JScrollPane todoScrollPane = new JScrollPane(todoList);
+
+        lightningTimeListModel = new DefaultListModel<>();
+        loadListFromDatabase(lightningTimeListModel, "schedules");
+        JList<String> lightningTimeList = new JList<>(lightningTimeListModel);
+        JScrollPane lightningTimeScrollPane = new JScrollPane(lightningTimeList);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        JPanel todoPanel = new JPanel(new BorderLayout());
+        JPanel lightningTimePanel = new JPanel(new BorderLayout());
+        JPanel buttonPanel = new JPanel(new GridLayout(3, 2));
+
+        JButton addTodoButton = new JButton("할 일 추가");
+        JButton deleteTodoButton = new JButton("할 일 삭제");
+        JButton addLightningTimeButton = new JButton("번개 시간 추가");
+        JButton deleteLightningTimeButton = new JButton("번개 시간 삭제");
+        JButton backButton = new JButton("뒤로 가기");
+
+        buttonPanel.add(addTodoButton);
+        buttonPanel.add(deleteTodoButton);
+        buttonPanel.add(addLightningTimeButton);
+        buttonPanel.add(deleteLightningTimeButton);
+        buttonPanel.add(new JLabel());
+        buttonPanel.add(backButton);
+
+        todoPanel.add(new JLabel("할 일 목록"), BorderLayout.NORTH);
+        todoPanel.add(todoScrollPane, BorderLayout.CENTER);
+        lightningTimePanel.add(new JLabel("번개 가능 시간대"), BorderLayout.NORTH);
+        lightningTimePanel.add(lightningTimeScrollPane, BorderLayout.CENTER);
+
+        panel.add(todoPanel, BorderLayout.NORTH);
+        panel.add(lightningTimePanel, BorderLayout.CENTER);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+
+        add(panel);
+
+        addTodoButton.addActionListener(e -> {
+            String newTodo = JOptionPane.showInputDialog(this, "새 할 일을 입력하세요:");
+            if (newTodo != null && !newTodo.trim().isEmpty()) {
+                todoListModel.addElement(newTodo);
+                saveToDatabase(newTodo, "todos");
+            }
+        });
+
+        deleteTodoButton.addActionListener(e -> {
+            int selectedIndex = todoList.getSelectedIndex();
+            if (selectedIndex != -1) {
+                int confirm = JOptionPane.showConfirmDialog(this, "선택한 할 일을 삭제하시겠습니까?", "삭제 확인", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    String itemToRemove = todoListModel.get(selectedIndex);
+                    todoListModel.remove(selectedIndex);
+                    deleteFromDatabase(itemToRemove, "todos");
+                }
+            }
+        });
+
+        addLightningTimeButton.addActionListener(e -> {
+            String newLightningTime = JOptionPane.showInputDialog(this, "새 번개 가능 시간을 입력하세요 (예: 06월 12일 14시 00분 ~ 06월 12일 16시 00분):");
+            if (newLightningTime != null && !newLightningTime.trim().isEmpty()) {
+                newLightningTime = formatLightningTime(newLightningTime);
+                if (newLightningTime != null) {
+                    lightningTimeListModel.addElement(newLightningTime);
+                    saveToDatabase(newLightningTime, "schedules");
+                } else {
+                    JOptionPane.showMessageDialog(this, "잘못된 형식입니다. 올바른 형식: MM월 dd일 HH시 mm분 ~ MM월 dd일 HH시 mm분");
+                }
+            }
+        });
+
+        deleteLightningTimeButton.addActionListener(e -> {
+            int selectedIndex = lightningTimeList.getSelectedIndex();
+            if (selectedIndex != -1) {
+                int confirm = JOptionPane.showConfirmDialog(this, "선택한 번개 가능 시간을 삭제하시겠습니까?", "삭제 확인", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    String itemToRemove = lightningTimeListModel.get(selectedIndex);
+                    lightningTimeListModel.remove(selectedIndex);
+                    deleteFromDatabase(itemToRemove, "schedules");
+                }
+            }
+        });
+
+        backButton.addActionListener(e -> {
+            dispose();
+            new MainScreen(userId);
+        });
+
+        setVisible(true);
+    }
+
+    private String formatLightningTime(String time) {
+        try {
+            SimpleDateFormat inputFormat = new SimpleDateFormat("MM월 dd일 HH시 mm분");
+            SimpleDateFormat outputFormat = new SimpleDateFormat("MM월 dd일 HH시 mm분");
+
+            String[] parts = time.split("~");
+
+            String startTimeStr = parts[0].trim();
+            String endTimeStr = parts[1].trim();
+
+            Date startTime = inputFormat.parse(startTimeStr);
+            Date endTime = inputFormat.parse(endTimeStr);
+
+            return outputFormat.format(startTime) + " ~ " + outputFormat.format(endTime);
+        } catch (ParseException e) {
+            return null;
+        }
+    }
+
+    private void saveToDatabase(String item, String tableName) {
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            if (tableName.equals("schedules")) {
+                String query = "INSERT INTO schedules (user_id, date, time, description) VALUES (?, ?, ?, ?)";
+                String[] parts = item.split(" ~ ");
+                SimpleDateFormat sdf = new SimpleDateFormat("MM월 dd일 HH시 mm분");
+                Date startDate = sdf.parse(parts[0]);
+                Date endDate = sdf.parse(parts[1]);
+                try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                    preparedStatement.setString(1, userId);
+                    preparedStatement.setDate(2, new java.sql.Date(startDate.getTime()));
+                    preparedStatement.setTime(3, new java.sql.Time(startDate.getTime()));
+                    preparedStatement.setString(4, "Start");
+                    preparedStatement.executeUpdate();
+
+                    preparedStatement.setString(1, userId);
+                    preparedStatement.setDate(2, new java.sql.Date(endDate.getTime()));
+                    preparedStatement.setTime(3, new java.sql.Time(endDate.getTime()));
+                    preparedStatement.setString(4, "End");
+                    preparedStatement.executeUpdate();
+                }
+            } else {
+                String query = "INSERT INTO todos (user_id, description) VALUES (?, ?)";
+                try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                    preparedStatement.setString(1, userId);
+                    preparedStatement.setString(2, item);
+                    preparedStatement.executeUpdate();
+                }
+            }
+        } catch (SQLException | ParseException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void deleteFromDatabase(String item, String tableName) {
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            if (tableName.equals("schedules")) {
+                String query = "DELETE FROM schedules WHERE user_id = ? AND date = ? AND time = ?";
+                String[] parts = item.split(" ~ ");
+                SimpleDateFormat sdf = new SimpleDateFormat("MM월 dd일 HH시 mm분");
+                Date startDate = sdf.parse(parts[0]);
+                Date endDate = sdf.parse(parts[1]);
+                try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                    preparedStatement.setString(1, userId);
+                    preparedStatement.setDate(2, new java.sql.Date(startDate.getTime()));
+                    preparedStatement.setTime(3, new java.sql.Time(startDate.getTime()));
+                    preparedStatement.executeUpdate();
+
+                    preparedStatement.setString(1, userId);
+                    preparedStatement.setDate(2, new java.sql.Date(endDate.getTime()));
+                    preparedStatement.setTime(3, new java.sql.Time(endDate.getTime()));
+                    preparedStatement.executeUpdate();
+                }
+            } else {
+                String query = "DELETE FROM todos WHERE user_id = ? AND description = ?";
+                try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                    preparedStatement.setString(1, userId);
+                    preparedStatement.setString(2, item);
+                    preparedStatement.executeUpdate();
+                }
+            }
+        } catch (SQLException | ParseException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadListFromDatabase(DefaultListModel<String> listModel, String tableName) {
+        listModel.clear();
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String query;
+            if (tableName.equals("schedules")) {
+                query = "SELECT CONCAT(DATE_FORMAT(date, '%m월 %d일'), ' ', TIME_FORMAT(time, '%H시 %i분')) as description FROM schedules WHERE user_id = ?";
+            } else {
+                query = "SELECT description FROM todos WHERE user_id = ?";
+            }
+            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                preparedStatement.setString(1, userId);
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        listModel.addElement(resultSet.getString("description"));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
