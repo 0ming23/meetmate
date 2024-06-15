@@ -1,0 +1,160 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.*;
+
+public class ViewMyPostsScreen extends JFrame {
+    private String userId;
+    private JPanel postsPanel;
+    private JScrollPane scrollPane;
+
+    public ViewMyPostsScreen(String userId) {
+        this.userId = userId;
+
+        setTitle("My Posts");
+        setSize(400, 600);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        postsPanel = new JPanel();
+        postsPanel.setLayout(new BoxLayout(postsPanel, BoxLayout.Y_AXIS));
+
+        loadMyPosts();
+
+        scrollPane = new JScrollPane(postsPanel);
+        add(scrollPane, BorderLayout.CENTER);
+
+        JButton backButton = new JButton("뒤로가기");
+        backButton.addActionListener(e -> {
+            dispose();
+            new PostScreen(userId); // Assuming you have a class called PostScreen for the posts menu
+        });
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+        buttonPanel.add(backButton);
+
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        setVisible(true);
+    }
+
+    private void loadMyPosts() {
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            String query = "SELECT id, title, content, timestamp FROM posts WHERE user_id = ? ORDER BY timestamp DESC";
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, userId);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                int postId = rs.getInt("id");
+                String title = rs.getString("title");
+                String content = rs.getString("content");
+                String timestamp = rs.getString("timestamp");
+
+                JPanel postPanel = new JPanel();
+                postPanel.setLayout(new BoxLayout(postPanel, BoxLayout.Y_AXIS));
+                postPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+                JLabel titleLabel = new JLabel("Title: " + title);
+                JLabel contentLabel = new JLabel("Content: " + content);
+                JLabel timestampLabel = new JLabel("Timestamp: " + timestamp);
+
+                JButton editButton = new JButton("수정");
+                editButton.addActionListener(e -> {
+                    String newTitle = JOptionPane.showInputDialog(this, "새 제목 입력:", title);
+                    String newContent = JOptionPane.showInputDialog(this, "새 내용 입력:", content);
+                    if (newTitle != null && newContent != null) {
+                        updatePost(postId, newTitle, newContent);
+                    }
+                });
+
+                JButton deleteButton = new JButton("삭제");
+                deleteButton.addActionListener(e -> {
+                    int response = JOptionPane.showConfirmDialog(this, "정말로 삭제하시겠습니까?", "포스트 삭제", JOptionPane.YES_NO_OPTION);
+                    if (response == JOptionPane.YES_OPTION) {
+                        deletePost(postId);
+                    }
+                });
+
+                postPanel.add(titleLabel);
+                postPanel.add(contentLabel);
+                postPanel.add(timestampLabel);
+                postPanel.add(editButton);
+                postPanel.add(deleteButton);
+
+                postsPanel.add(postPanel);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void updatePost(int postId, String newTitle, String newContent) {
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            String query = "UPDATE posts SET title = ?, content = ? WHERE id = ?";
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, newTitle);
+            stmt.setString(2, newContent);
+            stmt.setInt(3, postId);
+            stmt.executeUpdate();
+            JOptionPane.showMessageDialog(this, "포스트가 수정되었습니다.");
+            refreshPosts();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void deletePost(int postId) {
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            String query = "DELETE FROM posts WHERE id = ?";
+            stmt = conn.prepareStatement(query);
+            stmt.setInt(1, postId);
+            stmt.executeUpdate();
+            JOptionPane.showMessageDialog(this, "포스트가 삭제되었습니다.");
+            refreshPosts();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void refreshPosts() {
+        postsPanel.removeAll();
+        loadMyPosts();
+        postsPanel.revalidate();
+        postsPanel.repaint();
+    }
+}
