@@ -1,0 +1,85 @@
+import javax.swing.*;
+import java.awt.*;
+
+public class MainScreen extends JFrame {
+    private String userId;
+
+    public MainScreen(String userId) {
+        this.userId = userId;
+
+        setTitle("Main Screen");
+        setSize(300, 400);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(6, 1));
+
+        Dimension buttonSize = new Dimension(300, 50);
+
+        JButton profileButton = new JButton("내 프로필");
+        profileButton.setPreferredSize(buttonSize);
+        JButton friendProfileButton = new JButton("친구 프로필");
+        friendProfileButton.setPreferredSize(buttonSize);
+        JButton postButton = new JButton("포스트");
+        postButton.setPreferredSize(buttonSize);
+        JButton friendListButton = new JButton("친구 목록");
+        friendListButton.setPreferredSize(buttonSize);
+        JButton chatButton = new JButton("채팅하기");
+        chatButton.setPreferredSize(buttonSize);
+        JButton logoutButton = new JButton("로그아웃");
+        logoutButton.setPreferredSize(buttonSize);
+
+        profileButton.addActionListener(e -> {
+            dispose();
+            new ProfileScreen(userId);
+        });
+
+        friendProfileButton.addActionListener(e -> {
+            dispose();
+            new FriendProfileScreen(userId);
+        });
+
+        postButton.addActionListener(e -> {
+            dispose();
+            new PostScreen(userId);
+        });
+
+        friendListButton.addActionListener(e -> {
+            dispose();
+            new FriendsListScreen(userId);
+        });
+
+        chatButton.addActionListener(e -> {
+            String targetId = JOptionPane.showInputDialog(this, "채팅할 사용자의 아이디 또는 닉네임을 입력하세요:");
+            if (targetId != null && !targetId.trim().isEmpty()) {
+                if (targetId.equals(userId)) {
+                    JOptionPane.showMessageDialog(this, "잘못된 아이디 혹은 닉네임 입니다.");
+                } else {
+                    new ChatScreen("localhost", userId, targetId);
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "유효한 사용자 아이디 또는 닉네임을 입력하세요.");
+            }
+        });
+
+        logoutButton.addActionListener(e -> {
+            dispose();
+            new LoginScreen();
+        });
+
+        panel.add(profileButton);
+        panel.add(friendProfileButton);
+        panel.add(postButton);
+        panel.add(friendListButton);
+        panel.add(chatButton);
+        panel.add(logoutButton);
+
+        add(panel);
+        setVisible(true);
+    }
+
+    public static void main(String[] args) {
+        new MainScreen("testUser");
+    }
+}
