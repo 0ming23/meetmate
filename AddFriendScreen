@@ -1,0 +1,53 @@
+import javax.swing.*;
+import java.awt.*;
+
+public class AddFriendScreen extends JFrame {
+    private String userId;
+    private JTextField friendIdField;
+    private JLabel statusLabel;
+
+    public AddFriendScreen(String userId) {
+        this.userId = userId;
+
+        setTitle("친구 추가");
+        setSize(300, 200);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel(new GridLayout(3, 2));
+        JLabel friendIdLabel = new JLabel("친구 ID:");
+        friendIdField = new JTextField();
+        JButton addButton = new JButton("추가");
+        statusLabel = new JLabel("", SwingConstants.CENTER);
+
+        panel.add(friendIdLabel);
+        panel.add(friendIdField);
+        panel.add(addButton);
+        panel.add(statusLabel);
+
+        add(panel);
+
+        addButton.addActionListener(e -> addFriend());
+
+        setVisible(true);
+    }
+
+    private void addFriend() {
+        String friendId = friendIdField.getText();
+        if (friendId != null && !friendId.trim().isEmpty()) {
+            FriendSystem friendSystem = new FriendSystem(userId);
+            boolean success = friendSystem.addFriend(friendId);
+            if (success) {
+                statusLabel.setText("친구 추가 성공!");
+            } else {
+                statusLabel.setText("친구 추가 실패: 친구 ID가 존재하지 않습니다.");
+            }
+        } else {
+            statusLabel.setText("친구 ID를 입력하세요.");
+        }
+    }
+
+    public static void main(String[] args) {
+        new AddFriendScreen("testUser");
+    }
+}
