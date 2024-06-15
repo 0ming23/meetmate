@@ -1,0 +1,124 @@
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import javax.swing.JOptionPane;
+
+public class FriendRequestSystem {
+
+    public static void sendFriendRequest(String senderId, String receiverId) {
+        Connection connection = DatabaseConnection.getConnection();
+        if (connection != null) {
+            try {
+                // 이미 친구인지 확인
+                String checkQuery = "SELECT status FROM friends WHERE user_id = ? AND friend_id = ?";
+                try (PreparedStatement checkStmt = connection.prepareStatement(checkQuery)) {
+                    checkStmt.setString(1, senderId);
+                    checkStmt.setString(2, receiverId);
+                    ResultSet rs = checkStmt.executeQuery();
+                    if (rs.next()) {
+                        String status = rs.getString("status");
+                        if ("accepted".equals(status)) {
+                            JOptionPane.showMessageDialog(null, "이미 친구 등록이 완료되었습니다.");
+                            return;
+                        } else if ("pending".equals(status)) {
+                            JOptionPane.showMessageDialog(null, "이미 친구 요청을 보냈습니다.");
+                            return;
+                        }
+                    }
+                }
+
+                // 친구 요청 전송
+                String query = "INSERT INTO friends (user_id, friend_id, status) VALUES (?, ?, 'pending')";
+                try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                    preparedStatement.setString(1, senderId);
+                    preparedStatement.setString(2, receiverId);
+                    preparedStatement.executeUpdate();
+                    JOptionPane.showMessageDialog(null, "친구 요청이 성공적으로 전송되었습니다.");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, "친구 요청 전송 중 오류가 발생했습니다: " + e.getMessage());
+            } finally {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            JOptionPane.showMessageDialog(null, "데이터베이스 연결 실패");
+        }
+    }
+
+    public static void acceptFriendRequest(String userId, String requesterId) {
+        Connection connection = DatabaseConnection.getConnection();
+        if (connection != null) {
+            try {
+                String query = "UPDATE friends SET status = 'accepted' WHERE user_id = ? AND friend_id = ?";
+                try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                    preparedStatement.setString(1, requesterId);
+                    preparedStatement.setString(2, userId);
+                    preparedStatement.executeUpdate();
+                    JOptionPane.showMessageDialog(null, "친구 요청을 수락했습니다.");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, "친구 요청 수락 중 오류가 발생했습니다: " + e.getMessage());
+            } finally {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            JOptionPane.showMessageDialog(null, "데이터베이스 연결 실패");
+        }
+    }
+
+    public static void declineFriendRequest(String userId, String requesterId) {
+        Connection connection = DatabaseConnection.getConnection();
+        if (connection != null) {
+            try {
+                String query = "DELETE FROM friends WHERE user_id = ? AND friend_id = ? AND status = 'pending'";
+                try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                    preparedStatement.setString(1, requesterId);
+                    preparedStatement.setString(2, userId);
+                    preparedStatement.executeUpdate();
+                    JOptionPane.showMessageDialog(null, "친구 요청을 거절했습니다.");
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, "친구 요청 거절 중 오류가 발생했습니다: " + e.getMessage());
+            } finally {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            JOptionPane.showMessageDialog(null, "데이터베이스 연결 실패");
+        }
+    }
+
+    public static ResultSet getReceivedFriendRequests(String userId) {
+        Connection connection = DatabaseConnection.getConnection();
+        ResultSet resultSet = null;
+        if (connection != null) {
+            try {
+                String query = "SELECT user_id FROM friends WHERE friend_id = ? AND status = 'pending'";
+                PreparedStatement preparedStatement = connection.prepareStatement(query);
+                preparedStatement.setString(1, userId);
+                resultSet = preparedStatement.executeQuery();
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, "친구 요청을 로드하는 중 오류가 발생했습니다: " + e.getMessage());
+            }
+        } else {
+            JOptionPane.showMessageDialog(null, "데이터베이스 연결 실패");
+        }
+        return resultSet;
+    }
+}
