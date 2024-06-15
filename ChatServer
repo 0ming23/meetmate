@@ -1,0 +1,96 @@
+import java.io.*;
+import java.net.*;
+import java.sql.*;
+import java.util.*;
+
+public class ChatServer {
+    private static final int PORT = 12345;
+    private static HashSet<PrintWriter> writers = new HashSet<>();
+
+    public static void main(String[] args) throws Exception {
+        System.out.println("The chat server is running...");
+        ServerSocket listener = new ServerSocket(PORT);
+        try {
+            while (true) {
+                new Handler(listener.accept()).start();
+            }
+        } finally {
+            listener.close();
+        }
+    }
+
+    private static class Handler extends Thread {
+        private String name;
+        private Socket socket;
+        private BufferedReader in;
+        private PrintWriter out;
+
+        public Handler(Socket socket) {
+            this.socket = socket;
+        }
+
+        public void run() {
+            try {
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                out = new PrintWriter(socket.getOutputStream(), true);
+
+                synchronized (writers) {
+                    writers.add(out);
+                }
+
+                while (true) {
+                    String input = in.readLine();
+                    if (input == null) {
+                        return;
+                    }
+                    saveMessageToDatabase(input);
+                    for (PrintWriter writer : writers) {
+                        writer.println(input);
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println(e);
+            } finally {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                }
+            }
+        }
+
+        private void saveMessageToDatabase(String input) {
+            String[] parts = input.split(": ", 2);
+            if (parts.length >= 2) {
+                String sender = parts[0];
+                String message = parts[1];
+                // Assuming the format of input is "sender_id: message", 
+                // and receiver_id can be extracted or predefined.
+
+                // You need to parse the receiver_id based on your protocol.
+                // For simplicity, we assume the receiver_id is predefined.
+                String receiver = "defaultReceiver"; // Change to the actual receiver logic
+
+                Connection conn = null;
+                PreparedStatement stmt = null;
+                try {
+                    conn = DatabaseConnection.getConnection();
+                    String query = "INSERT INTO chat_messages (sender_id, receiver_id, message) VALUES (?, ?, ?)";
+                    stmt = conn.prepareStatement(query);
+                    stmt.setString(1, sender);
+                    stmt.setString(2, receiver);
+                    stmt.setString(3, message);
+                    stmt.executeUpdate();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        if (stmt != null) stmt.close();
+                        if (conn != null) conn.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+}
