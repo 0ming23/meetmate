@@ -1,0 +1,117 @@
+import javax.swing.*;
+import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+public class FriendProfileScreen extends JFrame {
+    public FriendProfileScreen(String userId) {
+        setTitle("친구 프로필");
+        setSize(400, 600);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+
+        JScrollPane scrollPane = new JScrollPane(panel);
+        add(scrollPane);
+
+        Connection connection = DatabaseConnection.getConnection();
+        if (connection != null) {
+            try {
+                String query = "SELECT u.user_nickname, s.date, s.time, t.description " +
+                               "FROM meetmate_user u " +
+                               "LEFT JOIN schedules s ON u.user_id = s.user_id " +
+                               "LEFT JOIN todos t ON u.user_id = t.user_id " +
+                               "WHERE u.user_id IN (SELECT friend_id FROM friends WHERE user_id = ? AND status = 'accepted')";
+                PreparedStatement preparedStatement = connection.prepareStatement(query);
+                preparedStatement.setString(1, userId);
+                ResultSet resultSet = preparedStatement.executeQuery();
+
+                Map<String, FriendInfo> friendInfoMap = new HashMap<>();
+
+                while (resultSet.next()) {
+                    String friendNickname = resultSet.getString("user_nickname");
+                    String date = resultSet.getString("date");
+                    String time = resultSet.getString("time");
+                    String todoDescription = resultSet.getString("description");
+
+                    FriendInfo friendInfo = friendInfoMap.getOrDefault(friendNickname, new FriendInfo(friendNickname));
+                    if (date != null && time != null) {
+                        friendInfo.addSchedule(date + " " + time);
+                    }
+                    if (todoDescription != null) {
+                        friendInfo.addTodoItem(todoDescription);
+                    }
+                    friendInfoMap.put(friendNickname, friendInfo);
+                }
+
+                for (FriendInfo friendInfo : friendInfoMap.values()) {
+                    panel.add(new JLabel("친구: " + friendInfo.nickname));
+                    
+                    panel.add(new JLabel("번개 가능 시간대:"));
+                    if (friendInfo.schedules.isEmpty()) {
+                        panel.add(new JLabel("번개 가능 시간이 없습니다."));
+                    } else {
+                        for (String schedule : friendInfo.schedules) {
+                            panel.add(new JLabel(schedule));
+                        }
+                    }
+
+                    panel.add(new JLabel("Todolist:"));
+                    if (friendInfo.todoList.isEmpty()) {
+                        panel.add(new JLabel("할 일이 없습니다."));
+                    } else {
+                        for (String todoItem : friendInfo.todoList) {
+                            panel.add(new JLabel(todoItem));
+                        }
+                    }
+
+                    panel.add(Box.createVerticalStrut(10)); // 친구별 구분을 위한 공백
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, "친구 프로필을 로드하는 중 오류가 발생했습니다: " + e.getMessage());
+            }
+        } else {
+            JOptionPane.showMessageDialog(null, "데이터베이스 연결 실패");
+        }
+
+        JButton backButton = new JButton("뒤로 가기");
+        backButton.addActionListener(e -> {
+            dispose();
+            new MainScreen(userId);
+        });
+
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(backButton);
+
+        setVisible(true);
+    }
+
+    private class FriendInfo {
+        String nickname;
+        Set<String> schedules;
+        Set<String> todoList;
+
+        FriendInfo(String nickname) {
+            this.nickname = nickname;
+            this.schedules = new HashSet<>();
+            this.todoList = new HashSet<>();
+        }
+
+        void addSchedule(String schedule) {
+            schedules.add(schedule);
+        }
+
+        void addTodoItem(String todoItem) {
+            todoList.add(todoItem);
+        }
+    }
+}
