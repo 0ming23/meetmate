@@ -1,0 +1,108 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.*;
+
+public class PostSearchScreen extends JFrame {
+    private JTextField searchField;
+    private JTextArea resultArea;
+    private String userId;
+
+    public PostSearchScreen(String userId) {
+        this.userId = userId;
+
+        setTitle("Post Search");
+        setSize(400, 300);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        JPanel topPanel = new JPanel(new FlowLayout());
+        JPanel bottomPanel = new JPanel();
+
+        searchField = new JTextField(20);
+        JButton searchButton = new JButton("검색");
+        JButton backButton = new JButton("뒤로가기");
+
+        Dimension buttonSize = new Dimension(80, 30);
+        searchButton.setPreferredSize(buttonSize);
+        backButton.setPreferredSize(buttonSize);
+
+        topPanel.add(new JLabel("검색어:"));
+        topPanel.add(searchField);
+
+        bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.X_AXIS));
+        bottomPanel.add(Box.createHorizontalGlue());
+        bottomPanel.add(searchButton);
+        bottomPanel.add(Box.createRigidArea(new Dimension(10, 0)));
+        bottomPanel.add(backButton);
+        bottomPanel.add(Box.createHorizontalGlue());
+
+        resultArea = new JTextArea();
+        resultArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(resultArea);
+
+        panel.add(topPanel, BorderLayout.NORTH);
+        panel.add(scrollPane, BorderLayout.CENTER);
+        panel.add(bottomPanel, BorderLayout.SOUTH);
+
+        searchButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String keyword = searchField.getText();
+                if (keyword != null && !keyword.trim().isEmpty()) {
+                    searchPosts(keyword);
+                } else {
+                    JOptionPane.showMessageDialog(PostSearchScreen.this, "검색어를 입력하세요.");
+                }
+            }
+        });
+
+        backButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                dispose();
+                new PostScreen(userId);
+            }
+        });
+
+        add(panel);
+        setVisible(true);
+    }
+
+    private void searchPosts(String keyword) {
+        resultArea.setText("");
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            String query = "SELECT title, content, timestamp FROM posts WHERE title LIKE ? OR content LIKE ?";
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, "%" + keyword + "%");
+            stmt.setString(2, "%" + keyword + "%");
+            rs = stmt.executeQuery();
+            while (rs.next()) {
+                String title = rs.getString("title");
+                String content = rs.getString("content");
+                String timestamp = rs.getString("timestamp");
+                resultArea.append("Title: " + title + "\nContent: " + content + "\nTimestamp: " + timestamp + "\n\n");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        new PostSearchScreen("testUser");
+    }
+}
