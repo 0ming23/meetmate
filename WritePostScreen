@@ -1,0 +1,75 @@
+import javax.swing.*;
+import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
+public class WritePostScreen extends JFrame {
+    private JTextField titleField;
+    private JTextArea contentArea;
+    private String userId;
+
+    public WritePostScreen(String userId) {
+        this.userId = userId;
+
+        setTitle("Write Post");
+        setSize(400, 300);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BorderLayout());
+
+        titleField = new JTextField("제목");
+        contentArea = new JTextArea("내용");
+
+        JButton uploadButton = new JButton("업로드");
+        uploadButton.addActionListener(e -> uploadPost());
+
+        panel.add(titleField, BorderLayout.NORTH);
+        panel.add(new JScrollPane(contentArea), BorderLayout.CENTER);
+        panel.add(uploadButton, BorderLayout.SOUTH);
+
+        add(panel);
+        setVisible(true);
+    }
+
+    private void uploadPost() {
+        String title = titleField.getText();
+        String content = contentArea.getText();
+
+        if (title.isEmpty() || content.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "제목과 내용을 입력하세요.");
+            return;
+        }
+
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            String query = "INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)";
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, userId);
+            stmt.setString(2, title);
+            stmt.setString(3, content);
+            stmt.executeUpdate();
+            JOptionPane.showMessageDialog(this, "포스트가 업로드되었습니다.");
+            dispose();
+            new PostScreen(userId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "포스트 업로드에 실패했습니다.");
+        } finally {
+            try {
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        new WritePostScreen("testUser");
+    }
+}
