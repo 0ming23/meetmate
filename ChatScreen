@@ -1,0 +1,132 @@
+import javax.swing.*;
+import java.awt.*;
+import java.io.*;
+import java.net.*;
+import java.sql.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class ChatScreen extends JFrame {
+    private BufferedReader in;
+    private PrintWriter out;
+    private JTextArea chatArea;
+    private JTextField inputField;
+    private String targetId;
+    private String userId;
+    private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+    public ChatScreen(String serverAddress, String userId, String targetId) {
+        this.userId = userId;
+        this.targetId = targetId;
+
+        setTitle("Chat with " + targetId);
+        setSize(400, 300);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        chatArea = new JTextArea();
+        chatArea.setEditable(false);
+        inputField = new JTextField();
+
+        add(new JScrollPane(chatArea), BorderLayout.CENTER);
+        add(inputField, BorderLayout.SOUTH);
+
+        inputField.addActionListener(e -> {
+            String message = inputField.getText();
+            if (out != null) {
+                String timestamp = dateFormat.format(new Date());
+                out.println(userId + ": " + message + " (" + timestamp + ")");
+                saveMessageToDatabase(userId, targetId, message, timestamp);
+                inputField.setText("");
+            } else {
+                JOptionPane.showMessageDialog(this, "서버와의 연결이 끊어졌습니다.");
+            }
+        });
+
+        setVisible(true);
+
+        loadChatHistory();
+
+        try {
+            Socket socket = new Socket(serverAddress, 12345);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(), true);
+
+            new Thread(() -> {
+                try {
+                    while (true) {
+                        String line = in.readLine();
+                        if (line == null) break;
+                        chatArea.append(line + "\n");
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "서버에 연결할 수 없습니다.");
+            dispose();
+        }
+    }
+
+    private void loadChatHistory() {
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            String query = "SELECT sender_id, message, timestamp FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY timestamp";
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, userId);
+            stmt.setString(2, targetId);
+            stmt.setString(3, targetId);
+            stmt.setString(4, userId);
+            rs = stmt.executeQuery();
+            while (rs.next()) {
+                String sender = rs.getString("sender_id");
+                String message = rs.getString("message");
+                String timestamp = rs.getString("timestamp");
+                chatArea.append(sender + ": " + message + " (" + timestamp + ")\n");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void saveMessageToDatabase(String senderId, String receiverId, String message, String timestamp) {
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            String query = "INSERT INTO chat_messages (sender_id, receiver_id, message, timestamp) VALUES (?, ?, ?, ?)";
+            stmt = conn.prepareStatement(query);
+            stmt.setString(1, senderId);
+            stmt.setString(2, receiverId);
+            stmt.setString(3, message);
+            stmt.setString(4, timestamp);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        new ChatScreen("localhost", "testUser", "targetUser");
+    }
+}
