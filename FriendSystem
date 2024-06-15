@@ -1,0 +1,62 @@
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class FriendSystem {
+    private String userId;
+
+    public FriendSystem(String userId) {
+        this.userId = userId;
+    }
+
+    public List<String> getFriendList() {
+        List<String> friends = new ArrayList<>();
+        Connection connection = DatabaseConnection.getConnection();
+        if (connection != null) {
+            try {
+                String query = "SELECT friend_id FROM friends WHERE user_id = ?";
+                PreparedStatement preparedStatement = connection.prepareStatement(query);
+                preparedStatement.setString(1, userId);
+                ResultSet resultSet = preparedStatement.executeQuery();
+                while (resultSet.next()) {
+                    friends.add(resultSet.getString("friend_id"));
+                }
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return friends;
+    }
+
+    public boolean addFriend(String friendId) {
+        Connection connection = DatabaseConnection.getConnection();
+        if (connection != null) {
+            try {
+                String checkQuery = "SELECT * FROM meetmate_user WHERE user_id = ?";
+                PreparedStatement checkStatement = connection.prepareStatement(checkQuery);
+                checkStatement.setString(1, friendId);
+                ResultSet checkResultSet = checkStatement.executeQuery();
+                if (checkResultSet.next()) {
+                    String insertQuery = "INSERT INTO friends (user_id, friend_id) VALUES (?, ?)";
+                    PreparedStatement insertStatement = connection.prepareStatement(insertQuery);
+                    insertStatement.setString(1, userId);
+                    insertStatement.setString(2, friendId);
+                    insertStatement.executeUpdate();
+                    connection.close();
+                    return true;
+                } else {
+                    connection.close();
+                    return false;
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        return false;
+    }
+}
