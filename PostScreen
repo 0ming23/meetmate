@@ -1,0 +1,70 @@
+import javax.swing.*;
+import java.awt.*;
+
+public class PostScreen extends JFrame {
+    private String userId;
+
+    public PostScreen(String userId) {
+        this.userId = userId;
+
+        setTitle("Post Menu");
+        setSize(300, 400);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(5, 1));
+
+        Dimension buttonSize = new Dimension(300, 50);
+
+        JButton writePostButton = new JButton("포스트 쓰기");
+        writePostButton.setPreferredSize(buttonSize);
+        JButton viewMyPostsButton = new JButton("내 포스트 보기");
+        viewMyPostsButton.setPreferredSize(buttonSize);
+        JButton viewFriendPostsButton = new JButton("친구 포스트 보기");
+        viewFriendPostsButton.setPreferredSize(buttonSize);
+        JButton searchPostsButton = new JButton("포스트 검색");
+        searchPostsButton.setPreferredSize(buttonSize);
+        JButton backButton = new JButton("뒤로가기");
+        backButton.setPreferredSize(buttonSize);
+
+        writePostButton.addActionListener(e -> {
+            dispose();
+            new WritePostScreen(userId);
+        });
+
+        viewMyPostsButton.addActionListener(e -> {
+            dispose();
+            new ViewMyPostsScreen(userId);
+        });
+
+        viewFriendPostsButton.addActionListener(e -> {
+            dispose();
+            new ViewFriendPostsScreen(userId);
+        });
+
+        searchPostsButton.addActionListener(e -> {
+            dispose();
+            new PostSearchScreen(userId);
+        });
+
+        backButton.addActionListener(e -> {
+            dispose();
+            new MainScreen(userId);
+        });
+
+        panel.add(writePostButton);
+        panel.add(viewMyPostsButton);
+        panel.add(viewFriendPostsButton);
+        panel.add(searchPostsButton);
+        panel.add(backButton);
+
+        add(panel);
+
+        setVisible(true);
+    }
+
+    public static void main(String[] args) {
+        new PostScreen("testUser");
+    }
+}
