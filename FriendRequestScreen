@@ -1,0 +1,41 @@
+import javax.swing.*;
+import java.awt.*;
+
+public class FriendRequestScreen extends JFrame {
+    private JTextField friendIdField;
+
+    public FriendRequestScreen(String userId) {
+        setTitle("친구 요청");
+        setSize(300, 150);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel(new GridLayout(4, 1));
+        friendIdField = new JTextField();
+        JButton sendRequestButton = new JButton("친구 요청 보내기");
+        JButton backButton = new JButton("뒤로 가기");
+
+        panel.add(new JLabel("친구 ID를 입력하세요:"));
+        panel.add(friendIdField);
+        panel.add(sendRequestButton);
+        panel.add(backButton);
+
+        add(panel);
+
+        sendRequestButton.addActionListener(e -> {
+            String friendId = friendIdField.getText();
+            if (!friendId.isEmpty()) {
+                FriendRequestSystem.sendFriendRequest(userId, friendId);
+            } else {
+                JOptionPane.showMessageDialog(this, "친구 ID를 입력하세요.");
+            }
+        });
+
+        backButton.addActionListener(e -> {
+            dispose();
+            new FriendsListScreen(userId);
+        });
+
+        setVisible(true);
+    }
+}
